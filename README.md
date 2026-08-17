@@ -76,10 +76,10 @@ scale with actual traffic. The VPS path doesn't have that trade-off
 (writing a local file is free regardless of traffic) but its data is
 only as fresh as the last scheduled write.
 
-`infra/yandex/` is a self-contained Terraform root module; `infra/vps/`
-is a plain systemd + nginx setup, not Terraform-managed. Both are
-fully supported — pick whichever fits your traffic and cost tolerance
-better, or run both.
+Neither path uses an IaC tool — the Yandex deployment is a short list
+of `yc` CLI commands, `infra/vps/` is a plain systemd + nginx setup.
+Both are fully supported — pick whichever fits your traffic and cost
+tolerance better, or run both.
 
 ## Getting started
 
@@ -103,7 +103,7 @@ that go into whichever deployment option you pick next.
 
 ## Choose your deployment
 
-- **[Yandex Cloud Function](#yandex-cloud-function-deployment)** — Terraform, deploys a publicly-invokable Cloud Function, nothing else.
+- **[Yandex Cloud Function](#yandex-cloud-function-deployment)** — `yc` CLI, deploys a publicly-invokable Cloud Function, nothing else.
 - **[Self-hosted VPS](#self-hosted-vps-deployment)** — systemd timer + nginx, on a server you already run.
 
 ## Yandex Cloud Function deployment
@@ -117,31 +117,40 @@ fresh, live, right then.
 
 - A Spotify client ID, client secret, and refresh token — see
   ["Getting started"](#getting-started) above if you don't have these yet.
-- A Yandex Cloud `folder_id` (goes in `terraform.tfvars`) and a `yc`
-  CLI already authenticated against your account.
-- Terraform >= 1.5.
+- A `yc` CLI already authenticated against your account (`yc init`).
 
 ### Deploy
 
 ```bash
-cd infra/yandex
-cp terraform.tfvars.example terraform.tfvars
-# fill in terraform.tfvars: folder_id, spotify_client_id/secret/refresh_token
+export SPOTIFY_CLIENT_ID=xxxx
+export SPOTIFY_CLIENT_SECRET=xxxx
+export SPOTIFY_REFRESH_TOKEN=xxxx
 
-export YC_TOKEN=$(yc iam create-token)
-terraform init
-terraform plan
-terraform apply
+yc serverless function create spotify-now-playing   # skip if it already exists
+
+yc serverless function version create \
+  --function-name spotify-now-playing \
+  --runtime python312 \
+  --entrypoint now_playing.yandex_handler \
+  --memory 128MB \
+  --execution-timeout 10s \
+  --source-path ./function \
+  --environment SPOTIFY_CLIENT_ID=$SPOTIFY_CLIENT_ID,SPOTIFY_CLIENT_SECRET=$SPOTIFY_CLIENT_SECRET,SPOTIFY_REFRESH_TOKEN=$SPOTIFY_REFRESH_TOKEN
+
+yc serverless function allow-unauthenticated-invoke spotify-now-playing
 ```
 
-`terraform apply` prints a `now_playing_url` output — a
-`https://functions.yandexcloud.net/<id>` URL that runs the function
-and returns the JSON on every request. The response sets
-`Access-Control-Allow-Origin: *`, so a browser can `fetch()` it
-directly cross-origin; reverse-proxying it through nginx for a
-same-origin path (matching the VPS deployment's URL shape) also works
-if you'd rather not expose the `functions.yandexcloud.net` URL
-directly.
+To redeploy after changing `function/now_playing.py`, just re-run the
+`version create` command — it creates a new version and Yandex starts
+serving it immediately, no separate "update" step.
+
+Get the invoke URL with `yc serverless function get spotify-now-playing`
+(the `http_invoke_url` field) — that URL returns the JSON on every
+request. The response sets `Access-Control-Allow-Origin: *`, so a
+browser can `fetch()` it directly cross-origin; reverse-proxying it
+through nginx for a same-origin path (matching the VPS deployment's
+URL shape) also works if you'd rather not expose the
+`functions.yandexcloud.net` URL directly.
 
 **If your site sends a `Content-Security-Policy` header with a
 `connect-src` directive**, CORS being permissive isn't enough on its
@@ -159,11 +168,12 @@ though the function's own CORS headers allow it. Either:
 
 ### Secrets
 
-Spotify credentials are Terraform variables marked `sensitive`,
-supplied via `terraform.tfvars`. Terraform state itself isn't
-encrypted by default, so those values end up in plaintext in
-`terraform.tfstate`. Fine for a personal project with local state;
-move to a remote backend with encryption at rest if that ever changes.
+Spotify credentials are shell env vars passed straight to `yc` on the
+command line — nothing writes them to disk as part of this flow. They
+do end up stored as the function's environment variables in Yandex
+Cloud itself (visible to anyone with read access to the function in
+your account), which is inherent to how Cloud Functions pass config
+in, not specific to this deploy method.
 
 ## Self-hosted VPS deployment
 
