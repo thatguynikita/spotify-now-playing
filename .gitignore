@@ -11,16 +11,3 @@ venv/
 # template, not real secrets.
 *.env
 !infra/vps/spotify-widget.env
-
-# Terraform. *.tfvars holds real credentials -- never commit; only
-# *.tfvars.example. State can hold secrets too.
-**/.terraform/
-*.tfstate
-*.tfstate.*
-*.tfvars
-!*.tfvars.example
-crash.log
-crash.*.log
-
-# Cloud Function build artifacts
-infra/**/build/

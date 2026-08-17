@@ -1,8 +1,0 @@
-# Copy to terraform.tfvars (gitignored) and fill in real values.
-# Auth: export YC_TOKEN=$(yc iam create-token) before running Terraform.
-
-folder_id = "your_folder_id_here"
-
-spotify_client_id     = "your_client_id_here"
-spotify_client_secret = "your_client_secret_here"
-spotify_refresh_token  = "your_refresh_token_here"
