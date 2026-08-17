@@ -7,14 +7,13 @@ __pycache__/
 .venv/
 venv/
 
-# Local secrets. infra/vps/spotify-widget.env is a committed *template*
-# (placeholder values only) — real secrets never live in this repo.
+# Local secrets. infra/vps/spotify-widget.env is a placeholder
+# template, not real secrets.
 *.env
 !infra/vps/spotify-widget.env
 
-# Terraform. *.tfvars holds real Spotify credentials for local applies —
-# never commit it, only *.tfvars.example. State can contain secrets too
-# (env vars, etc.) so it stays local/remote-backend only, never in git.
+# Terraform. *.tfvars holds real credentials -- never commit; only
+# *.tfvars.example. State can hold secrets too.
 **/.terraform/
 *.tfstate
 *.tfstate.*
@@ -23,5 +22,5 @@ venv/
 crash.log
 crash.*.log
 
-# Lambda/Cloud Function build artifacts
+# Cloud Function build artifacts
 infra/**/build/

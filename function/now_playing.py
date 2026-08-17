@@ -1,11 +1,8 @@
 """Fetch Spotify's currently-playing track and write it as JSON to
-S3-compatible storage.
+Yandex Object Storage.
 
-One file, two entry points — aws_handler for AWS Lambda,
-yandex_handler for Yandex Cloud Functions — sharing all the
-Spotify-fetching logic and differing only in which storage endpoint
-boto3 talks to. Output shape matches README.md's Interface section
-exactly.
+Deployed as the Yandex Cloud Function in infra/yandex/. Output shape
+matches README.md's Interface section exactly.
 """
 
 import base64
@@ -77,13 +74,9 @@ def _fetch_currently_playing(access_token: str) -> dict:
 
 
 def get_now_playing(client_id: str, client_secret: str, refresh_token: str) -> dict:
-    """Returns a dict matching README.md's Interface section.
-
-    Never raises — any failure talking to Spotify (network, auth, rate
-    limit) degrades to {"is_playing": False}, the same "can't reach
-    Spotify" state the contract already defines, logged to stderr for
-    whichever platform's log stream is watching.
-    """
+    """Returns a dict matching README.md's Interface section. Never
+    raises -- failures degrade to {"is_playing": False} and log to
+    stderr."""
     try:
         access_token = _refresh_access_token(client_id, client_secret, refresh_token)
         return _fetch_currently_playing(access_token)
@@ -92,14 +85,21 @@ def get_now_playing(client_id: str, client_secret: str, refresh_token: str) -> d
         return {"is_playing": False}
 
 
-def _run(**s3_client_kwargs) -> dict:
+def yandex_handler(event, context):
+    """Yandex Cloud Function entry point. boto3 credentials come from
+    AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY (set in infra/yandex from
+    a Yandex static access key)."""
     data = get_now_playing(
         os.environ["SPOTIFY_CLIENT_ID"],
         os.environ["SPOTIFY_CLIENT_SECRET"],
         os.environ["SPOTIFY_REFRESH_TOKEN"],
     )
 
-    s3 = boto3.client("s3", **s3_client_kwargs)
+    s3 = boto3.client(
+        "s3",
+        endpoint_url="https://storage.yandexcloud.net",
+        region_name="ru-central1",
+    )
     s3.put_object(
         Bucket=os.environ["OUTPUT_BUCKET"],
         Key=os.environ.get("OUTPUT_KEY", "now-playing.json"),
@@ -109,19 +109,3 @@ def _run(**s3_client_kwargs) -> dict:
     )
 
     return {"statusCode": 200}
-
-
-def aws_handler(event, context):
-    """AWS Lambda entry point — default boto3 S3 client (real AWS S3)."""
-    return _run()
-
-
-def yandex_handler(event, context):
-    """Yandex Cloud Function entry point — boto3 pointed at Yandex's
-    S3-compatible Object Storage endpoint. Credentials come from the
-    standard AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY env vars (see
-    infra/yandex), populated from a Yandex static access key."""
-    return _run(
-        endpoint_url="https://storage.yandexcloud.net",
-        region_name="ru-central1",
-    )

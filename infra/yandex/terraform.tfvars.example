@@ -1,13 +1,10 @@
 # Copy to terraform.tfvars (gitignored) and fill in real values.
-# Auth itself (YC_TOKEN / YC_CLOUD_ID) goes in env vars, not here —
-# see main.tf's provider block comment.
+# Auth (YC_TOKEN/YC_CLOUD_ID) goes in env vars, not here.
 
 folder_id   = "your_folder_id_here"
 bucket_name = "your-globally-unique-bucket-name"
 
-# Uncomment to use a bucket you already manage instead of having
-# Terraform create one, and/or to write somewhere other than the
-# bucket root:
+# Optional: use an existing bucket / different path
 # create_bucket = false
 # output_key    = "assets/spotify/now-playing.json"
 

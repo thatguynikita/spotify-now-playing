@@ -16,18 +16,18 @@ variable "function_name" {
 }
 
 variable "bucket_name" {
-  description = "Object Storage bucket the function writes to. Must already exist if create_bucket is false; must be globally unique if Terraform is creating it."
+  description = "Object Storage bucket to write to. Must exist already if create_bucket is false; must be globally unique otherwise."
   type        = string
 }
 
 variable "create_bucket" {
-  description = "Whether Terraform creates the Object Storage bucket. Set to false to use a bucket you already manage -- write access still works via the storage service account's folder-level storage.editor role either way, but Terraform can only manage the bucket's public-read policy when it also owns the bucket resource (the Yandex provider ties policy to bucket creation, unlike AWS's separate policy resource) -- configure public read on an existing bucket yourself if you set this to false."
+  description = "Whether Terraform creates the bucket. If false, use an existing bucket -- write access still works via the storage.editor role, but you must configure public read yourself (Yandex ties bucket policy to bucket creation)."
   type        = bool
   default     = true
 }
 
 variable "output_key" {
-  description = "Object key (path) within the bucket to write to -- can be any path, not just the bucket root, e.g. \"assets/spotify/now-playing.json\""
+  description = "Object key (path) to write to within the bucket, e.g. \"assets/spotify/now-playing.json\"."
   type        = string
   default     = "now-playing.json"
 }
