@@ -1,10 +1,29 @@
 # spotify-now-playing
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A Spotify "now playing" widget backend, producing the same small JSON
 shape one of two ways: a Yandex Cloud Function that computes it fresh
 on every HTTP request, or a VPS that polls Spotify on a schedule and
 writes it to a local file. Either way, any frontend, script, app, or
 other consumer can fetch it to show what's currently playing.
+
+```mermaid
+flowchart TD
+    Spotify[Spotify API] --> Deploy{Which deployment?}
+    Deploy -->|Yandex Cloud Function| Live[Computed live, per request]
+    Deploy -->|Self-hosted VPS| File[Written to a local file on a timer]
+    Live --> JSON["/now-playing.json shape"]
+    File --> JSON
+    JSON --> Frontend[Your frontend, via fetch]
+```
+
+## Contents
+
+- [Interface](#interface) — the JSON shape both deployments produce
+- [Deployment strategies](#deployment-strategies) — Yandex Cloud Function vs. self-hosted VPS, and the trade-off between them
+- [Getting started](#getting-started) — one-time Spotify app + refresh token setup, shared by both
+- [Choose your deployment](#choose-your-deployment) — jump straight to a walkthrough
 
 ## Interface
 
