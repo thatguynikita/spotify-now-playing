@@ -60,7 +60,7 @@ you point your frontend at:
 
 | | What it is | Freshness | Cost scales with |
 |---|---|---|---|
-| **Yandex Cloud Function** | `function/now_playing.py`'s `yandex_handler`, computed live on every HTTP request | always current | request volume |
+| **Yandex Cloud Function** | `function/now_playing.py`'s `handler`, computed live on every HTTP request | always current | request volume |
 | **Self-hosted VPS** | `infra/vps/spotify_now_playing.py`, writing a local file on a systemd timer | up to one timer interval stale | nothing extra (local disk write) |
 
 Every poll from every visitor to the Yandex function triggers a live
@@ -100,7 +100,7 @@ that go into whichever deployment option you pick next.
 ## Yandex Cloud Function deployment
 
 Provisions one Cloud Function ([`function/now_playing.py`](function/now_playing.py)'s
-`yandex_handler`), made publicly invokable over HTTP with no auth
+`handler`), made publicly invokable over HTTP with no auth
 header. Each request runs it fresh, live.
 
 ### Prerequisites
@@ -121,7 +121,7 @@ yc serverless function create spotify-now-playing   # skip if it already exists
 yc serverless function version create \
   --function-name spotify-now-playing \
   --runtime python312 \
-  --entrypoint now_playing.yandex_handler \
+  --entrypoint now_playing.handler \
   --memory 128MB \
   --execution-timeout 10s \
   --source-path ./function \
