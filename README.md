@@ -2,11 +2,10 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A Spotify "now playing" widget backend, producing the same small JSON
-shape one of two ways: a Yandex Cloud Function that computes it fresh
-on every HTTP request, or a VPS that polls Spotify on a schedule and
-writes it to a local file. Either way, any frontend, script, app, or
-other consumer can fetch it to show what's currently playing.
+A Spotify "now playing" widget backend. Deploy as a Yandex Cloud
+Function (computes live per request) or on a VPS (polls on a
+schedule, writes a local file) — either way, any frontend can fetch
+the same JSON shape to show what's playing.
 
 ```mermaid
 flowchart TD
@@ -44,21 +43,15 @@ flowchart TD
 
 ### Example consumer
 
-[`now-playing-widget.html`](now-playing-widget.html)
-is a real, working reference frontend — drop-in markup/CSS/JS to your website. It polls
+[`now-playing-widget.html`](now-playing-widget.html) is a real,
+working reference frontend — drop-in markup/CSS/JS. It polls
 `/now-playing.json` every 20 seconds with `fetch(url, { cache: 'no-store' })`:
 
-- `is_playing: true` + a `track` → shows a scrolling `"♫ <track> — <artist>"`
-  ticker.
-- `is_playing: false`, or the fetch/parse fails outright → shows "Not
-  listening to anything right now" and pauses the scroll animation
-  (the same UI state either way — the file doesn't distinguish "idle"
-  from "unreachable," though your own frontend is free to).
+- `is_playing: true` + a `track` → scrolling `"♫ <track> — <artist>"` ticker.
+- Otherwise → "Not listening to anything right now", scroll paused.
 
-Adjust `ENDPOINT` in its `<script>` if you're not serving the JSON
-from your site's root, and `POLL_MS` if you want a different polling
-interval. Use it as-is, or as a template for your own frontend — the
-JSON shape above is all it actually depends on.
+Adjust `ENDPOINT` and `POLL_MS` in its `<script>` as needed. Use it
+as-is or as a template — the JSON shape above is all it depends on.
 
 ## Deployment strategies
 
@@ -70,16 +63,14 @@ you point your frontend at:
 | **Yandex Cloud Function** | `function/now_playing.py`'s `yandex_handler`, computed live on every HTTP request | always current | request volume |
 | **Self-hosted VPS** | `infra/vps/spotify_now_playing.py`, writing a local file on a systemd timer | up to one timer interval stale | nothing extra (local disk write) |
 
-Every poll from every visitor to the Yandex Cloud Function triggers a
-live Spotify API call, so both Yandex's bill and Spotify's rate limit
-scale with actual traffic. The VPS path doesn't have that trade-off
-(writing a local file is free regardless of traffic) but its data is
-only as fresh as the last scheduled write.
+Every poll from every visitor to the Yandex function triggers a live
+Spotify API call, so cost and Spotify's rate limit scale with traffic.
+The VPS path is free regardless of traffic, but only as fresh as its
+last scheduled write.
 
-Neither path uses an IaC tool — the Yandex deployment is a short list
-of `yc` CLI commands, `infra/vps/` is a plain systemd + nginx setup.
-Both are fully supported — pick whichever fits your traffic and cost
-tolerance better, or run both.
+Neither path uses an IaC tool — Yandex is a short `yc` CLI command
+list, VPS is a plain systemd + nginx setup. Both fully supported; pick
+whichever fits, or run both.
 
 ## Getting started
 
@@ -108,10 +99,9 @@ that go into whichever deployment option you pick next.
 
 ## Yandex Cloud Function deployment
 
-Provisions one Cloud Function (running [`function/now_playing.py`](function/now_playing.py)'s
-`yandex_handler`) and an IAM binding that makes it publicly invokable
-over HTTP with no auth header required. Each request runs the function
-fresh, live, right then.
+Provisions one Cloud Function ([`function/now_playing.py`](function/now_playing.py)'s
+`yandex_handler`), made publicly invokable over HTTP with no auth
+header. Each request runs it fresh, live.
 
 ### Prerequisites
 
@@ -140,47 +130,33 @@ yc serverless function version create \
 yc serverless function allow-unauthenticated-invoke spotify-now-playing
 ```
 
-To redeploy after changing `function/now_playing.py`, just re-run the
-`version create` command — it creates a new version and Yandex starts
-serving it immediately, no separate "update" step.
+To redeploy after code changes, just re-run `version create` — new
+version, served immediately, no separate "update" step.
 
-Get the invoke URL with `yc serverless function get spotify-now-playing`
-(the `http_invoke_url` field) — that URL returns the JSON on every
-request. The response sets `Access-Control-Allow-Origin: *`, so a
-browser can `fetch()` it directly cross-origin; reverse-proxying it
-through nginx for a same-origin path (matching the VPS deployment's
-URL shape) also works if you'd rather not expose the
-`functions.yandexcloud.net` URL directly.
+Get the invoke URL from `yc serverless function get spotify-now-playing`
+(`http_invoke_url` field). The response sets
+`Access-Control-Allow-Origin: *` for direct cross-origin `fetch()`;
+reverse-proxy it through nginx instead if you'd rather keep a
+same-origin path.
 
-**If your site sends a `Content-Security-Policy` header with a
-`connect-src` directive**, CORS being permissive isn't enough on its
-own — CSP is enforced independently by the browser, so `connect-src
-'self'` still blocks a `fetch()` to `functions.yandexcloud.net` even
-though the function's own CORS headers allow it. Either:
-- widen `connect-src` to include the function's origin, narrowly
-  (`connect-src 'self' https://functions.yandexcloud.net/<id>` — pinned
-  to this one function, breaks if you redeploy under a new ID) or
-  broadly (`connect-src 'self' https://functions.yandexcloud.net` —
-  survives redeploys, trusts the whole domain instead of one function), or
-- reverse-proxy through nginx instead (see above) — same-origin
-  sidesteps the CORS and CSP question entirely, since the browser
-  never sees the `functions.yandexcloud.net` origin at all.
+**Note:** a site with its own `Content-Security-Policy` `connect-src`
+directive blocks this fetch regardless of CORS — CSP and CORS are
+enforced independently by the browser. Either add
+`https://functions.yandexcloud.net` to `connect-src`, or use the
+nginx reverse-proxy above to stay same-origin instead.
 
 ### Secrets
 
-Spotify credentials are shell env vars passed straight to `yc` on the
-command line — nothing writes them to disk as part of this flow. They
-do end up stored as the function's environment variables in Yandex
-Cloud itself (visible to anyone with read access to the function in
-your account), which is inherent to how Cloud Functions pass config
-in, not specific to this deploy method.
+Spotify credentials are shell env vars passed to `yc` directly —
+nothing written to disk by this flow. They do end up as the
+function's environment variables in Yandex Cloud itself, readable by
+anyone with access to the function in your account.
 
 ## Self-hosted VPS deployment
 
-A systemd-timer + VPS implementation, for anyone who'd rather
-self-host on a server they already have than use a cloud function. The
-commands and paths below use illustrative example values (domain,
-paths, user); swap in your own throughout.
+A systemd-timer + VPS implementation, for self-hosting instead of a
+cloud function. Commands below use example values (domain, paths,
+user) — swap in your own throughout.
 
 ### Prerequisites
 
@@ -189,8 +165,8 @@ A Spotify client ID, client secret, and refresh token — see
 
 ### 1. Copy files to the VPS
 ```bash
-# Output directory must exist and be writable by www-data *before* the
-# service ever runs — create and chown it first.
+# Create and chown the output dir before starting the service —
+# it must exist and be www-data-writable first.
 sudo mkdir -p /var/www/your-domain-name
 sudo chown www-data:www-data /var/www/your-domain-name
 
