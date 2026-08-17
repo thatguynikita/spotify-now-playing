@@ -1,0 +1,27 @@
+# OS cruft
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local secrets. infra/vps/spotify-widget.env is a committed *template*
+# (placeholder values only) — real secrets never live in this repo.
+*.env
+!infra/vps/spotify-widget.env
+
+# Terraform. *.tfvars holds real Spotify credentials for local applies —
+# never commit it, only *.tfvars.example. State can contain secrets too
+# (env vars, etc.) so it stays local/remote-backend only, never in git.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+
+# Lambda/Cloud Function build artifacts
+infra/**/build/

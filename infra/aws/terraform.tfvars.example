@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars (gitignored) and fill in real values.
+
+bucket_name = "your-globally-unique-bucket-name"
+
+# Uncomment to use a bucket you already manage instead of having
+# Terraform create one, and/or to write somewhere other than the
+# bucket root:
+# create_bucket = false
+# output_key    = "assets/spotify/now-playing.json"
+
+spotify_client_id     = "your_client_id_here"
+spotify_client_secret = "your_client_secret_here"
+spotify_refresh_token  = "your_refresh_token_here"

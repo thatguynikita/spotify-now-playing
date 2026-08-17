@@ -1,0 +1,23 @@
+[Unit]
+Description=Fetch Spotify now-playing track and write it to a static JSON file
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/spotify-widget.env
+ExecStart=/usr/bin/python3 /opt/spotify-widget/spotify_now_playing.py
+
+# Run as the same user nginx uses — make sure this user owns (or can
+# write to) OUTPUT_PATH's directory; see README.md's VPS setup steps.
+User=www-data
+Group=www-data
+
+# Light sandboxing — restricts what the script can touch. Must match
+# OUTPUT_PATH's directory exactly, or writes fail even with correct
+# Unix permissions (this is a systemd-level sandbox, not just chmod).
+# This example path is a placeholder — set it to your own deployment.
+ReadWritePaths=/var/www/your-domain-name
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
