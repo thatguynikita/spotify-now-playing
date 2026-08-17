@@ -15,23 +15,6 @@ variable "function_name" {
   default     = "spotify-now-playing"
 }
 
-variable "bucket_name" {
-  description = "Object Storage bucket to write to. Must exist already if create_bucket is false; must be globally unique otherwise."
-  type        = string
-}
-
-variable "create_bucket" {
-  description = "Whether Terraform creates the bucket. If false, use an existing bucket -- write access still works via the storage.editor role, but you must configure public read yourself (Yandex ties bucket policy to bucket creation)."
-  type        = bool
-  default     = true
-}
-
-variable "output_key" {
-  description = "Object key (path) to write to within the bucket, e.g. \"assets/spotify/now-playing.json\"."
-  type        = string
-  default     = "now-playing.json"
-}
-
 variable "spotify_client_id" {
   description = "Spotify app client ID"
   type        = string
