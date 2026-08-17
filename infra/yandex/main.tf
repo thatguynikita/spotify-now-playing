@@ -21,8 +21,7 @@ provider "yandex" {
   folder_id = var.folder_id
 }
 
-# Pure stdlib -- no requirements.txt to bundle (that was only ever for
-# boto3, needed back when this wrote to Object Storage).
+# Pure stdlib -- no requirements.txt to bundle.
 data "archive_file" "function" {
   type        = "zip"
   output_path = "${path.module}/build/function.zip"

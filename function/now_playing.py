@@ -2,9 +2,8 @@
 HTTP, computed fresh on every request.
 
 Deployed as the Yandex Cloud Function in infra/yandex/, invoked
-directly via its public HTTP URL -- no storage step, so cost scales
-with actual request volume instead of a fixed schedule. Output shape
-matches README.md's Interface section exactly.
+directly via its public HTTP URL. Output shape matches README.md's
+Interface section exactly.
 """
 
 import base64

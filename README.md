@@ -51,15 +51,11 @@ you point your frontend at:
 | **Yandex Cloud Function** | `function/now_playing.py`'s `yandex_handler`, computed live on every HTTP request | always current | request volume |
 | **Self-hosted VPS** | `infra/vps/spotify_now_playing.py`, writing a local file on a systemd timer | up to one timer interval stale | nothing extra (local disk write) |
 
-The Yandex Cloud Function used to write to Object Storage on a
-1-minute schedule, which meant paying for a write every minute
-regardless of whether anyone was looking. It's invoked directly
-instead now — no storage, no schedule, no idle cost — but every single
-poll from every visitor triggers a live Spotify API call, so both
-Yandex's bill and Spotify's rate limit scale with actual traffic. The
-VPS path doesn't have that trade-off (writing a local file is free
-either way) but trades it for staleness bounded by the timer interval
-instead of true real-time data.
+Every poll from every visitor to the Yandex Cloud Function triggers a
+live Spotify API call, so both Yandex's bill and Spotify's rate limit
+scale with actual traffic. The VPS path doesn't have that trade-off
+(writing a local file is free regardless of traffic) but its data is
+only as fresh as the last scheduled write.
 
 `infra/yandex/` is a self-contained Terraform root module; `infra/vps/`
 is a plain systemd + nginx setup, not Terraform-managed. Both are
@@ -95,8 +91,8 @@ that go into whichever deployment option you pick next.
 
 Provisions one Cloud Function (running [`function/now_playing.py`](function/now_playing.py)'s
 `yandex_handler`) and an IAM binding that makes it publicly invokable
-over HTTP with no auth header required. No storage, no schedule — each
-request runs the function fresh, live, right then.
+over HTTP with no auth header required. Each request runs the function
+fresh, live, right then.
 
 ### Prerequisites
 
