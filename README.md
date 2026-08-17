@@ -143,6 +143,20 @@ same-origin path (matching the VPS deployment's URL shape) also works
 if you'd rather not expose the `functions.yandexcloud.net` URL
 directly.
 
+**If your site sends a `Content-Security-Policy` header with a
+`connect-src` directive**, CORS being permissive isn't enough on its
+own — CSP is enforced independently by the browser, so `connect-src
+'self'` still blocks a `fetch()` to `functions.yandexcloud.net` even
+though the function's own CORS headers allow it. Either:
+- widen `connect-src` to include the function's origin, narrowly
+  (`connect-src 'self' https://functions.yandexcloud.net/<id>` — pinned
+  to this one function, breaks if you redeploy under a new ID) or
+  broadly (`connect-src 'self' https://functions.yandexcloud.net` —
+  survives redeploys, trusts the whole domain instead of one function), or
+- reverse-proxy through nginx instead (see above) — same-origin
+  sidesteps the CORS and CSP question entirely, since the browser
+  never sees the `functions.yandexcloud.net` origin at all.
+
 ### Secrets
 
 Spotify credentials are Terraform variables marked `sensitive`,
