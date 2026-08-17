@@ -2,10 +2,10 @@
 
 A Spotify "now playing" widget backend — polls the Spotify API on a
 schedule and writes one small `now-playing.json` file, either to an
-S3-compatible bucket (AWS S3 or Yandex Object Storage) or to a local
-file on a VPS, that any frontend, script, app, or other consumer can
-poll to show what's currently playing. Pick a deployment target (AWS
-Lambda, Yandex Cloud Function, or a plain VPS + cron/nginx).
+S3-compatible bucket (Yandex Object Storage) or to a local file on a
+VPS, that any frontend, script, app, or other consumer can poll to
+show what's currently playing. Pick a deployment target (Yandex Cloud
+Function, or a plain VPS + cron/nginx).
 
 ## Interface
 
@@ -44,24 +44,25 @@ JSON shape above is all it actually depends on.
 
 ## Deployment strategies
 
-Three ways to run this, all producing the same JSON at whatever URL
+Two ways to run this, both producing the same JSON at whatever URL
 you point your frontend at:
 
 | | What it is | Runs on a schedule via |
 |---|---|---|
-| **AWS Lambda** | `function/now_playing.py`'s `aws_handler`, writing to S3 | EventBridge Scheduler |
 | **Yandex Cloud Function** | `function/now_playing.py`'s `yandex_handler`, writing to Yandex Object Storage | a cron-based timer trigger |
 | **Self-hosted VPS** | `infra/vps/spotify_now_playing.py`, writing a local file | a systemd timer |
 
-Both cloud options poll **every 1 minute** — a
-limitation on both AWS EventBridge Scheduler and Yandex's
-timer trigger (neither supports sub-minute schedules). The VPS path
-isn't subject to that limit (its systemd timer can run as often as you
-like) but defaults to the same cadence for consistency.
+The Yandex Cloud Function polls **every 1 minute** — a limitation of
+its cron-based timer trigger (no native sub-minute schedules). The VPS
+path isn't subject to that limit (its systemd timer can run as often
+as you like) but defaults to the same cadence for consistency.
 
-The two Terraform modules (`infra/aws/`, `infra/yandex/`) are
-independent root modules rather than one config with conditionals, so you can adopt either
-(or both) without the other affecting anything.
+`infra/yandex/` is a self-contained Terraform root module; `infra/vps/`
+is a plain systemd + nginx setup, not Terraform-managed.
+
+An AWS Lambda path previously existed here but was removed — with no
+AWS access to actually test it against, keeping it around as
+unverified, possibly-bit-rotted infra wasn't worth it.
 
 ## Getting started
 
@@ -85,54 +86,8 @@ that go into whichever deployment option you pick next.
 
 ## Choose your deployment
 
-- **[AWS Lambda](#aws-lambda-deployment)** — Terraform, deploys a Lambda + S3 bucket + EventBridge schedule.
 - **[Yandex Cloud Function](#yandex-cloud-function-deployment)** — Terraform, deploys a Cloud Function + Object Storage bucket + timer trigger.
 - **[Self-hosted VPS](#self-hosted-vps-deployment)** — systemd timer + nginx, on a server you already run.
-
-## AWS Lambda deployment
-
-Provisions one Lambda function (running [`function/now_playing.py`](function/now_playing.py)'s
-`aws_handler`), one S3 bucket it writes `now-playing.json` to, and an
-EventBridge Scheduler rule that invokes it every minute.
-
-### Prerequisites
-
-- A Spotify client ID, client secret, and refresh token — see
-  ["Getting started"](#getting-started) above if you don't have these yet.
-- AWS credentials available to Terraform via your normal CLI config or
-  env vars (`aws configure`, `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`,
-  or an SSO profile).
-- Terraform >= 1.5.
-
-### Deploy
-
-```bash
-cd infra/aws
-cp terraform.tfvars.example terraform.tfvars
-# fill in terraform.tfvars: bucket_name, spotify_client_id/secret/refresh_token
-
-terraform init
-terraform plan
-terraform apply
-```
-
-`terraform apply` prints a `now_playing_url` output — that's the
-public S3 URL serving the output object. Point your frontend (or an
-nginx `proxy_pass`) at that URL.
-
-By default Terraform creates the bucket and writes to `now-playing.json`
-at its root; set `create_bucket = false` to use a bucket you already
-manage, and/or `output_key` to write to any other path in it — see
-`terraform.tfvars.example`.
-
-### Secrets
-
-Spotify credentials are Terraform variables marked `sensitive`,
-supplied via `terraform.tfvars`.
-Terraform state itself isn't encrypted by default, so those values end
-up in plaintext in `terraform.tfstate`. Fine for a personal project
-with local state; move to a remote backend with encryption at rest if
-that ever changes.
 
 ## Yandex Cloud Function deployment
 

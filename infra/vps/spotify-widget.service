@@ -8,15 +8,12 @@ Type=oneshot
 EnvironmentFile=/etc/spotify-widget.env
 ExecStart=/usr/bin/python3 /opt/spotify-widget/spotify_now_playing.py
 
-# Run as the same user nginx uses — make sure this user owns (or can
-# write to) OUTPUT_PATH's directory; see README.md's VPS setup steps.
+# Same user nginx uses -- must own/write OUTPUT_PATH's directory.
 User=www-data
 Group=www-data
 
-# Light sandboxing — restricts what the script can touch. Must match
-# OUTPUT_PATH's directory exactly, or writes fail even with correct
-# Unix permissions (this is a systemd-level sandbox, not just chmod).
-# This example path is a placeholder — set it to your own deployment.
+# Sandboxing: must match OUTPUT_PATH's directory or writes fail
+# (systemd-level, not just chmod). Placeholder -- set to your own.
 ReadWritePaths=/var/www/your-domain-name
 NoNewPrivileges=yes
 ProtectSystem=strict

@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """
-Fetches the currently-playing Spotify track and writes it as JSON
-to a static file that your web server can serve directly.
-
-Reads secrets from environment variables (loaded from /etc/spotify-widget.env
-by the systemd service). Never hardcode secrets in this file.
+Fetches the currently-playing Spotify track and writes it as JSON to
+a static file. Secrets come from env vars, loaded from
+/etc/spotify-widget.env by the systemd service.
 """
 
 import json
@@ -94,9 +92,7 @@ def main():
     client_id = get_env("SPOTIFY_CLIENT_ID")
     client_secret = get_env("SPOTIFY_CLIENT_SECRET")
     refresh_token = get_env("SPOTIFY_REFRESH_TOKEN")
-    # No fallback default here on purpose — this must point at a path
-    # your web server serves as a static file, which is inherently
-    # deployment-specific. Set it in spotify-widget.env.
+    # No default -- deployment-specific; set in spotify-widget.env.
     output_path = get_env("OUTPUT_PATH")
 
     try:
@@ -104,7 +100,7 @@ def main():
         now_playing = fetch_now_playing(access_token)
     except Exception as e:
         print(f"Error fetching now-playing: {e}", file=sys.stderr)
-        # Write a safe fallback so the widget doesn't show stale/broken data forever
+        # Fallback so the widget doesn't show stale data
         write_output({"is_playing": False}, output_path)
         sys.exit(1)
 

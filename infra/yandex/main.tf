@@ -13,17 +13,14 @@ terraform {
   }
 }
 
-# Auth (cloud_id + token, or a service account key file) comes from the
-# standard YC_TOKEN / YC_CLOUD_ID env vars (or `yc` CLI's own config) —
-# deliberately not put in a .tf file or tfvars alongside it.
+# Auth via YC_TOKEN/YC_CLOUD_ID env vars or yc CLI config -- not in .tf/tfvars.
 provider "yandex" {
   zone      = var.zone
   folder_id = var.folder_id
 }
 
-# Bundles the shared script plus requirements.txt (boto3 — Yandex's
-# Python runtime doesn't ship it) at the zip root. Yandex runs
-# `pip install -r requirements.txt` at deploy time when it's present.
+# Bundles the script + requirements.txt (boto3, not preinstalled).
+# Yandex pip-installs requirements.txt at deploy time.
 data "archive_file" "function" {
   type        = "zip"
   output_path = "${path.module}/build/function.zip"
@@ -57,10 +54,8 @@ resource "yandex_iam_service_account_static_access_key" "storage_key" {
   description         = "static access key for now-playing.json writes"
 }
 
-# Only created (and its public-read policy only managed) when
-# create_bucket is true -- an existing bucket's write access still
-# works below via the service account's storage.editor role, which
-# isn't scoped to a bucket Terraform has to own.
+# Only created when create_bucket is true -- write access works
+# regardless via the storage.editor role below.
 resource "yandex_storage_bucket" "now_playing" {
   count      = var.create_bucket ? 1 : 0
   bucket     = var.bucket_name
@@ -100,18 +95,14 @@ resource "yandex_function" "now_playing" {
   execution_timeout  = "10"
   service_account_id = yandex_iam_service_account.function_exec.id
 
-  # Re-deploys a new version whenever the zip's contents change —
-  # this hash already changes on any code change, so it doubles as
-  # the "user_hash" Yandex requires to detect an update.
+  # Changes whenever the zip changes -- satisfies Yandex's required user_hash.
   user_hash = data.archive_file.function.output_base64sha256
 
   content {
     zip_filename = data.archive_file.function.output_path
   }
 
-  # NOTE: same caveat as the AWS side — Terraform state isn't
-  # encrypted by default, so these values (Spotify secrets, storage
-  # static key) live in plaintext in local/remote state.
+  # Terraform state isn't encrypted by default -- these are plaintext in state.
   environment = {
     OUTPUT_BUCKET         = var.bucket_name
     OUTPUT_KEY            = var.output_key
@@ -123,8 +114,7 @@ resource "yandex_function" "now_playing" {
   }
 }
 
-# 1-minute floor is a hard limit of Yandex's cron-based timer trigger —
-# no native sub-minute schedules. See README.md's Terraform section.
+# 1-minute floor: Yandex's cron trigger has no sub-minute schedules.
 resource "yandex_function_trigger" "poll" {
   name = "${var.function_name}-poll"
 

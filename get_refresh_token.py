@@ -2,11 +2,9 @@
 """
 One-time script to obtain a Spotify refresh token.
 
-Shared bootstrap step for every deployment target in this repo (AWS
-Lambda, Yandex Cloud Function, or VPS) — run it once from anywhere
-with a browser available, then use the printed refresh token in
-whichever deployment's config you're setting up (terraform.tfvars or
-the VPS's env file). See README.md's "Getting started" section.
+Shared by every deployment target (Yandex Cloud Function, VPS) -- run
+once, then use the token in terraform.tfvars or the VPS env file. See
+README.md's "Getting started".
 
 Usage:
   1. Create an app at https://developer.spotify.com/dashboard
