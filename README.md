@@ -1,11 +1,10 @@
 # spotify-now-playing
 
-A Spotify "now playing" widget backend — polls the Spotify API on a
-schedule and writes one small `now-playing.json` file, either to an
-S3-compatible bucket (Yandex Object Storage) or to a local file on a
-VPS, that any frontend, script, app, or other consumer can poll to
-show what's currently playing. Pick a deployment target (Yandex Cloud
-Function, or a plain VPS + cron/nginx).
+A Spotify "now playing" widget backend, producing the same small JSON
+shape one of two ways: a Yandex Cloud Function that computes it fresh
+on every HTTP request, or a VPS that polls Spotify on a schedule and
+writes it to a local file. Either way, any frontend, script, app, or
+other consumer can fetch it to show what's currently playing.
 
 ## Interface
 
@@ -47,18 +46,21 @@ JSON shape above is all it actually depends on.
 Two ways to run this, both producing the same JSON at whatever URL
 you point your frontend at:
 
-| | What it is | Runs on a schedule via |
-|---|---|---|
-| **Yandex Cloud Function** | `function/now_playing.py`'s `yandex_handler`, writing to Yandex Object Storage | a cron-based timer trigger |
-| **Self-hosted VPS** | `infra/vps/spotify_now_playing.py`, writing a local file | a systemd timer |
+| | What it is | Freshness | Cost scales with |
+|---|---|---|---|
+| **Yandex Cloud Function** | `function/now_playing.py`'s `yandex_handler`, computed live on every HTTP request | always current | request volume |
+| **Self-hosted VPS** | `infra/vps/spotify_now_playing.py`, writing a local file on a systemd timer | up to one timer interval stale | nothing extra (local disk write) |
 
-The Yandex Cloud Function polls **every 1 minute** — a limitation of
-its cron-based timer trigger (no native sub-minute schedules). The VPS
-path isn't subject to that limit (its systemd timer can run as often
-as you like) but defaults to the same cadence for consistency.
+Every poll from every visitor to the Yandex Cloud Function triggers a
+live Spotify API call, so both Yandex's bill and Spotify's rate limit
+scale with actual traffic. The VPS path doesn't have that trade-off
+(writing a local file is free regardless of traffic) but its data is
+only as fresh as the last scheduled write.
 
 `infra/yandex/` is a self-contained Terraform root module; `infra/vps/`
-is a plain systemd + nginx setup, not Terraform-managed.
+is a plain systemd + nginx setup, not Terraform-managed. Both are
+fully supported — pick whichever fits your traffic and cost tolerance
+better, or run both.
 
 ## Getting started
 
@@ -82,15 +84,15 @@ that go into whichever deployment option you pick next.
 
 ## Choose your deployment
 
-- **[Yandex Cloud Function](#yandex-cloud-function-deployment)** — Terraform, deploys a Cloud Function + Object Storage bucket + timer trigger.
+- **[Yandex Cloud Function](#yandex-cloud-function-deployment)** — Terraform, deploys a publicly-invokable Cloud Function, nothing else.
 - **[Self-hosted VPS](#self-hosted-vps-deployment)** — systemd timer + nginx, on a server you already run.
 
 ## Yandex Cloud Function deployment
 
 Provisions one Cloud Function (running [`function/now_playing.py`](function/now_playing.py)'s
-`yandex_handler`), one Object Storage bucket it writes
-`now-playing.json` to, and a timer trigger that invokes it every
-minute.
+`yandex_handler`) and an IAM binding that makes it publicly invokable
+over HTTP with no auth header required. Each request runs the function
+fresh, live, right then.
 
 ### Prerequisites
 
@@ -105,7 +107,7 @@ minute.
 ```bash
 cd infra/yandex
 cp terraform.tfvars.example terraform.tfvars
-# fill in terraform.tfvars: folder_id, bucket_name, spotify_client_id/secret/refresh_token
+# fill in terraform.tfvars: folder_id, spotify_client_id/secret/refresh_token
 
 export YC_TOKEN=$(yc iam create-token)
 terraform init
@@ -113,28 +115,22 @@ terraform plan
 terraform apply
 ```
 
-`terraform apply` prints a `now_playing_url` output — that's the
-public Object Storage URL serving the output object. Point your
-frontend (or an nginx `proxy_pass`) at that URL.
-
-By default Terraform creates the bucket and writes to `now-playing.json`
-at its root; set `create_bucket = false` to use a bucket you already
-manage, and/or `output_key` to write to any other path in it — see
-`terraform.tfvars.example`. Note: write access works either way via
-the storage service account's `storage.editor` role, but Terraform can
-only manage the bucket's public-read policy when it also creates the
-bucket (the Yandex provider ties policy to bucket creation) — configure
-public read yourself if bringing your own bucket.
+`terraform apply` prints a `now_playing_url` output — a
+`https://functions.yandexcloud.net/<id>` URL that runs the function
+and returns the JSON on every request. The response sets
+`Access-Control-Allow-Origin: *`, so a browser can `fetch()` it
+directly cross-origin; reverse-proxying it through nginx for a
+same-origin path (matching the VPS deployment's URL shape) also works
+if you'd rather not expose the `functions.yandexcloud.net` URL
+directly.
 
 ### Secrets
 
 Spotify credentials are Terraform variables marked `sensitive`,
-supplied via `terraform.tfvars`.
-Terraform state itself isn't encrypted by default, so those values —
-plus the storage service account's static access key — end up in
-plaintext in `terraform.tfstate`. Fine for a personal project with
-local state; move to a remote backend with encryption at rest if that
-ever changes.
+supplied via `terraform.tfvars`. Terraform state itself isn't
+encrypted by default, so those values end up in plaintext in
+`terraform.tfstate`. Fine for a personal project with local state;
+move to a remote backend with encryption at rest if that ever changes.
 
 ## Self-hosted VPS deployment
 

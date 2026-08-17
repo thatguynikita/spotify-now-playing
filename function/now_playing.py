@@ -1,8 +1,9 @@
-"""Fetch Spotify's currently-playing track and write it as JSON to
-Yandex Object Storage.
+"""Fetch Spotify's currently-playing track and return it as JSON over
+HTTP, computed fresh on every request.
 
-Deployed as the Yandex Cloud Function in infra/yandex/. Output shape
-matches README.md's Interface section exactly.
+Deployed as the Yandex Cloud Function in infra/yandex/, invoked
+directly via its public HTTP URL. Output shape matches README.md's
+Interface section exactly.
 """
 
 import base64
@@ -12,8 +13,6 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-
-import boto3
 
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 NOW_PLAYING_URL = "https://api.spotify.com/v1/me/player/currently-playing"
@@ -86,26 +85,23 @@ def get_now_playing(client_id: str, client_secret: str, refresh_token: str) -> d
 
 
 def yandex_handler(event, context):
-    """Yandex Cloud Function entry point. boto3 credentials come from
-    AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY (set in infra/yandex from
-    a Yandex static access key)."""
+    """Yandex Cloud Function HTTP entry point -- see README.md's
+    response-contract link for the {statusCode, headers, body} shape
+    Yandex expects back."""
     data = get_now_playing(
         os.environ["SPOTIFY_CLIENT_ID"],
         os.environ["SPOTIFY_CLIENT_SECRET"],
         os.environ["SPOTIFY_REFRESH_TOKEN"],
     )
 
-    s3 = boto3.client(
-        "s3",
-        endpoint_url="https://storage.yandexcloud.net",
-        region_name="ru-central1",
-    )
-    s3.put_object(
-        Bucket=os.environ["OUTPUT_BUCKET"],
-        Key=os.environ.get("OUTPUT_KEY", "now-playing.json"),
-        Body=json.dumps(data).encode(),
-        ContentType="application/json",
-        CacheControl="no-store",
-    )
-
-    return {"statusCode": 200}
+    return {
+        "statusCode": 200,
+        "headers": {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store",
+            # Lets a browser fetch() this cross-origin directly, without
+            # requiring an nginx reverse proxy for a same-origin path.
+            "Access-Control-Allow-Origin": "*",
+        },
+        "body": json.dumps(data),
+    }

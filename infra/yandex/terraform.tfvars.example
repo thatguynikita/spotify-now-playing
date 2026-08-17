@@ -1,12 +1,7 @@
 # Copy to terraform.tfvars (gitignored) and fill in real values.
 # Auth: export YC_TOKEN=$(yc iam create-token) before running Terraform.
 
-folder_id   = "your_folder_id_here"
-bucket_name = "your-globally-unique-bucket-name"
-
-# Optional: use an existing bucket / different path
-# create_bucket = false
-# output_key    = "assets/spotify/now-playing.json"
+folder_id = "your_folder_id_here"
 
 spotify_client_id     = "your_client_id_here"
 spotify_client_secret = "your_client_secret_here"
