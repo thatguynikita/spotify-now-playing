@@ -60,10 +60,6 @@ as you like) but defaults to the same cadence for consistency.
 `infra/yandex/` is a self-contained Terraform root module; `infra/vps/`
 is a plain systemd + nginx setup, not Terraform-managed.
 
-An AWS Lambda path previously existed here but was removed — with no
-AWS access to actually test it against, keeping it around as
-unverified, possibly-bit-rotted infra wasn't worth it.
-
 ## Getting started
 
 ### 1. Create a Spotify app
@@ -100,8 +96,8 @@ minute.
 
 - A Spotify client ID, client secret, and refresh token — see
   ["Getting started"](#getting-started) above if you don't have these yet.
-- A Yandex Cloud `folder_id` and auth (`YC_TOKEN` + `YC_CLOUD_ID` env
-  vars, or your `yc` CLI's own config).
+- A Yandex Cloud `folder_id` (goes in `terraform.tfvars`) and a `yc`
+  CLI already authenticated against your account.
 - Terraform >= 1.5.
 
 ### Deploy
@@ -111,6 +107,7 @@ cd infra/yandex
 cp terraform.tfvars.example terraform.tfvars
 # fill in terraform.tfvars: folder_id, bucket_name, spotify_client_id/secret/refresh_token
 
+export YC_TOKEN=$(yc iam create-token)
 terraform init
 terraform plan
 terraform apply

@@ -13,7 +13,9 @@ terraform {
   }
 }
 
-# Auth via YC_TOKEN/YC_CLOUD_ID env vars or yc CLI config -- not in .tf/tfvars.
+# Auth: export YC_TOKEN=$(yc iam create-token) before running Terraform
+# (the provider does not read the yc CLI's own config automatically).
+# folder_id comes from the folder_id variable below, not an env var.
 provider "yandex" {
   zone      = var.zone
   folder_id = var.folder_id
@@ -51,12 +53,23 @@ resource "yandex_resourcemanager_folder_iam_member" "storage_editor" {
 
 resource "yandex_iam_service_account_static_access_key" "storage_key" {
   service_account_id = yandex_iam_service_account.storage.id
-  description         = "static access key for now-playing.json writes"
+  description        = "static access key for now-playing.json writes"
 }
 
 # Only created when create_bucket is true -- write access works
 # regardless via the storage.editor role below.
 resource "yandex_storage_bucket" "now_playing" {
+  count      = var.create_bucket ? 1 : 0
+  bucket     = var.bucket_name
+  access_key = yandex_iam_service_account_static_access_key.storage_key.access_key
+  secret_key = yandex_iam_service_account_static_access_key.storage_key.secret_key
+}
+
+# Separate resource, not the deprecated inline `policy` argument on
+# yandex_storage_bucket. Only applied when Terraform owns the bucket --
+# an existing bucket's policy (or anonymous_access_flags) is left
+# alone; see create_bucket's description.
+resource "yandex_storage_bucket_policy" "public_read_now_playing" {
   count      = var.create_bucket ? 1 : 0
   bucket     = var.bucket_name
   access_key = yandex_iam_service_account_static_access_key.storage_key.access_key
@@ -72,6 +85,8 @@ resource "yandex_storage_bucket" "now_playing" {
       Resource  = "arn:aws:s3:::${var.bucket_name}/${var.output_key}"
     }]
   })
+
+  depends_on = [yandex_storage_bucket.now_playing]
 }
 
 # --- Cloud Function + timer trigger ---
@@ -123,7 +138,7 @@ resource "yandex_function_trigger" "poll" {
   }
 
   function {
-    id                  = yandex_function.now_playing.id
+    id                 = yandex_function.now_playing.id
     service_account_id = yandex_iam_service_account.function_exec.id
   }
 }
