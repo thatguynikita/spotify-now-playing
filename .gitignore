@@ -7,6 +7,9 @@ __pycache__/
 .venv/
 venv/
 
+# Deploy packaging artifact
+function.zip
+
 # Local secrets. infra/vps/spotify-widget.env is a placeholder
 # template, not real secrets.
 *.env

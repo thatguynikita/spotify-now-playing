@@ -1,9 +1,9 @@
 """Fetch Spotify's currently-playing track and return it as JSON over
 HTTP, computed fresh on every request.
 
-Deployed as a Yandex Cloud Function (see README.md's "Yandex Cloud
-Function deployment" section), invoked directly via its public HTTP
-URL. Output shape matches README.md's Interface section exactly.
+Runs unmodified as either an AWS Lambda or a Yandex Cloud Function
+(see README.md's deployment sections), invoked directly via its public
+HTTP URL. Output shape matches README.md's Interface section exactly.
 """
 
 import base64
@@ -85,9 +85,9 @@ def get_now_playing(client_id: str, client_secret: str, refresh_token: str) -> d
 
 
 def handler(event, context):
-    """Cloud Function HTTP entry point -- see README.md's
-    response-contract link for the {statusCode, headers, body} shape
-    Yandex expects back."""
+    """HTTP entry point. AWS Lambda function URLs and Yandex Cloud
+    Functions expect the same {statusCode, headers, body} response
+    shape, so this handler works on both as-is."""
     data = get_now_playing(
         os.environ["SPOTIFY_CLIENT_ID"],
         os.environ["SPOTIFY_CLIENT_SECRET"],
