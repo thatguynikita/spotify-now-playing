@@ -109,10 +109,6 @@ Provisions one Lambda ([`function/now_playing.py`](function/now_playing.py)'s
 `handler`) with a public function URL — no auth header required. Each
 request runs it fresh, live.
 
-> The commands below follow AWS's own documentation but haven't been
-> run end-to-end against a real account, unlike the Yandex and VPS
-> paths. Corrections welcome.
-
 ### Prerequisites
 
 - A Spotify client ID, client secret, and refresh token — see
