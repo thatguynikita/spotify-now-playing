@@ -10,7 +10,9 @@ venv/
 # Deploy packaging artifact
 function.zip
 
-# Local secrets. infra/vps/spotify-widget.env is a placeholder
-# template, not real secrets.
+# Local secrets
 *.env
-!infra/vps/spotify-widget.env
+
+# Cloudflare Worker local state and dev secrets
+.wrangler/
+.dev.vars*
